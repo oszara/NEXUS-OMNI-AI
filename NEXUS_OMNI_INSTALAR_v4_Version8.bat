@@ -30,7 +30,7 @@ echo [1/8] Verificando Python 3.11...
 set PYTHON311=
 if exist "%PY311%\python.exe" (
     set "PYTHON311=%PY311%\python.exe"
-    echo [OK] Python 3.11 encontrado: %PYTHON311%
+    echo [OK] Python 3.11 encontrado: %PY311%\python.exe
 ) else (
     echo [INFO] Python 3.11 no encontrado. Descargando e instalando...
     powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python-3.11.9-amd64.exe'" 2>nul
