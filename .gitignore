@@ -9,3 +9,11 @@ build/
 *.spec
 venv/
 .venv/
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.spec
+memory/nexus_memory.json
+.env
