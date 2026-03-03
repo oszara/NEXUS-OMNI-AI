@@ -62,8 +62,12 @@ if file_missing("tests/test_basic.py"):
 print("Estructura completada.")
 
 # 6️⃣ Instalar dependencias
-subprocess.run(["pip", "install", "-r", "requirements.txt"])
+result = subprocess.run(["pip", "install", "-r", "requirements.txt"])
+if result.returncode != 0:
+    print("Error: pip install failed.")
 
 # 7️⃣ Commit automático
 subprocess.run(["git", "add", "."])
-subprocess.run(["git", "commit", "-m", "Auto-structure: added missing project files"])
+result = subprocess.run(["git", "commit", "-m", "Auto-structure: added missing project files"])
+if result.returncode != 0:
+    print("Note: git commit skipped (nothing to commit or not a git repo).")
