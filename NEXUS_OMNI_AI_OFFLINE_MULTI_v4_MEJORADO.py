@@ -1131,42 +1131,42 @@ class App(tk.Tk):
             self._or(f"⏳ Indexando {os.path.basename(ruta)}...")
             def _r():
                 res=mcp_call("mcp_rag.py","indexar_documento",{"ruta_archivo":ruta},timeout=60)
-                self.after(0,lambda:self._or(res))
+                self.after(0,lambda r=res:self._or(r))
             threading.Thread(target=_r,daemon=True).start()
     def _rag_buscar(self):
         q=self.rag_q.get().strip() or "tema principal"
         def _r():
             res=mcp_call("mcp_rag.py","buscar_en_documentos",{"query":q})
-            self.after(0,lambda:self._or(res))
+            self.after(0,lambda r=res:self._or(r))
         threading.Thread(target=_r,daemon=True).start()
     def _rag_list(self):
         def _r():
             res=mcp_call("mcp_rag.py","listar_documentos_indexados",{})
-            self.after(0,lambda:self._or(res))
+            self.after(0,lambda r=res:self._or(r))
         threading.Thread(target=_r,daemon=True).start()
     def _tts(self):
         t=self.voz_t.get("1.0",tk.END).strip()
         if t:
             def _r():
                 res=mcp_call("mcp_voice.py","texto_a_voz",{"texto":t})
-                self.after(0,lambda:self._ov(res))
+                self.after(0,lambda r=res:self._ov(r))
             threading.Thread(target=_r,daemon=True).start()
     def _stt(self):
         self._ov("🎙️ Escuchando 5s...")
         def _r():
             res=mcp_call("mcp_voice.py","reconocer_voz",{"duracion":5},timeout=15)
-            self.after(0,lambda:self._ov(res))
+            self.after(0,lambda r=res:self._ov(r))
             if res.startswith("Reconocido:"): self.after(0,lambda:self.entrada.insert(tk.END,res.split(":",1)[1].strip()))
         threading.Thread(target=_r,daemon=True).start()
     def _voces(self):
         def _r():
             res=mcp_call("mcp_voice.py","listar_voces",{})
-            self.after(0,lambda:self._ov(res))
+            self.after(0,lambda r=res:self._ov(r))
         threading.Thread(target=_r,daemon=True).start()
     def _mr(self,srv,tool,args):
         def _r():
             res=mcp_call(srv,tool,args)
-            self.after(0,lambda:self._om(res))
+            self.after(0,lambda r=res:self._om(r))
         threading.Thread(target=_r,daemon=True).start()
     def _ml(self):
         r=filedialog.askopenfilename()
