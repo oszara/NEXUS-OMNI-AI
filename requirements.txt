@@ -1,0 +1,5 @@
+copaw
+ollama
+goose-ai
+mcp
+pyyaml
