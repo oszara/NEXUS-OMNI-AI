@@ -1,9 +1,11 @@
 __pycache__/
 *.pyc
 *.pyo
-memory/nexus_memory.json
-build/
-dist/
-*.spec
+*.pyd
+.Python
 *.egg-info/
+dist/
+build/
+*.spec
+memory/nexus_memory.json
 .env

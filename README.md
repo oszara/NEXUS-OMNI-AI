@@ -1,6 +1,6 @@
 # NEXUS OMNI AI
 
-**NEXUS OMNI Multi-Agente IA v4.0** — Asistente de inteligencia artificial offline y multi-agente, con integración opcional de [CoPaw](https://github.com/agentscope-ai/CoPaw) (AgentScope-AI / Alibaba).
+**NEXUS OMNI Multi-Agente IA v4.0** — Asistente de inteligencia artificial offline y multi-agente, con integración de [block/goose](https://github.com/block/goose) vía MCP y soporte opcional de [CoPaw](https://github.com/agentscope-ai/CoPaw) (AgentScope-AI / Alibaba).
 
 ---
 
@@ -38,6 +38,12 @@ Todo funciona **sin conexión a Internet**, usando modelos LLM locales a través
 - 🤖 **Soporte multi-canal** — Discord, DingTalk, consola web y más
 - ⏰ **Tareas autónomas programadas** — ejecución por cron o eventos
 
+### Integración con Goose (block/goose)
+- 🪿 **Agente autónomo** — Goose puede razonar, planificar y ejecutar tareas complejas
+- 🔌 **Protocolo MCP** — estándar abierto para exponer herramientas a modelos de lenguaje
+- 📋 **Recetas YAML** — workflows reproducibles y automatizados, versionables en Git
+- 🤖 **Múltiples LLMs** — compatible con Claude, GPT-4o, Gemini, Ollama y más
+
 ---
 
 ## Instalación
@@ -70,7 +76,8 @@ pip install -r requirements.txt
 pip install pillow requests psutil pydantic rich python-dotenv ollama \
     langchain langchain-ollama langchain-community langgraph \
     crewai chromadb sentence-transformers pypdf python-docx \
-    pyttsx3 SpeechRecognition diffusers transformers copaw
+    pyttsx3 SpeechRecognition diffusers transformers copaw \
+    goose-ai mcp pyyaml
 
 # 3. Descargar el modelo de lenguaje
 ollama pull phi3
@@ -107,6 +114,33 @@ Variables de entorno opcionales:
 COPAW_PORT=8080 python copaw_launcher.py
 ```
 
+### Lanzar NEXUS a través de Goose
+
+```bash
+# Sesión interactiva (Goose + extensión NEXUS)
+python goose_launcher.py
+
+# Ejecutar la receta de análisis autónomo
+python goose_launcher.py --recipe nexus_recipe.yaml
+```
+
+#### Extensión MCP
+
+El archivo `goose_extension_nexus.py` implementa un servidor MCP (JSON-RPC sobre stdio) que expone dos herramientas:
+
+| Herramienta | Descripción |
+|---|---|
+| `nexus_query(prompt)` | Envía una consulta al motor NEXUS y retorna la respuesta |
+| `nexus_status()` | Retorna el estado actual del sistema (versión, modo, motor) |
+
+#### Modos de uso con Goose
+
+| Modo | Comando | Descripción |
+|---|---|---|
+| Solo NEXUS | *(ejecutar directamente el script principal)* | Motor de IA sin agente |
+| NEXUS + Goose | `python goose_launcher.py` | Sesión interactiva con agente autónomo |
+| NEXUS + Goose (receta) | `python goose_launcher.py --recipe nexus_recipe.yaml` | Workflow automatizado |
+
 ---
 
 ## Estructura del proyecto
@@ -119,6 +153,10 @@ NEXUS-OMNI-AI/
 ├── copaw_launcher.py                             # Launcher CoPaw (punto de entrada)
 ├── copaw_skill_nexus.py                          # Skill de NEXUS para CoPaw
 ├── copaw_memory_nexus.py                         # Memoria persistente ReMe
+├── goose_extension_nexus.py                      # Extensión MCP para Goose
+├── goose_launcher.py                             # Launcher de Goose
+├── nexus_recipe.yaml                             # Receta YAML para workflows autónomos
+├── .goosehints                                   # Contexto del proyecto para Goose
 └── memory/
     └── nexus_memory.json                         # Datos de memoria local
 ```
@@ -181,6 +219,14 @@ y en el almacén ReMe de CoPaw cuando sí lo está.
 | RAM | 8 GB (16 GB recomendado) |
 | Almacenamiento | 10 GB libres |
 | GPU | Opcional (acelera generación de imágenes) |
+
+---
+
+## Notas
+
+- El archivo `NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py` **no debe modificarse** directamente.
+- Todos los módulos de integración son no intrusivos.
+- Los comentarios y mensajes están en español.
 
 ---
 
