@@ -14,7 +14,7 @@ pyinstaller
 # Agentes IA
 langchain==0.3.25
 langchain-ollama==0.3.3
-langchain-community==0.3.24
+langchain-community==0.3.27
 langgraph==0.4.1
 crewai==0.86.0
 ag2
