@@ -1,0 +1,81 @@
+# NEXUS-OMNI-AI — Guía para Goose
+
+## Descripción del Proyecto
+
+NEXUS-OMNI-AI es un sistema de inteligencia artificial offline multi-modal desarrollado en Python.
+El archivo principal es `NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py` (~82 KB).
+
+El proyecto integra:
+- **CoPaw** — framework de Skills y memoria persistente (ReMe)
+- **block/goose** — agente autónomo con protocolo MCP y recetas YAML
+
+## Reglas Importantes
+
+- **NO modificar** `NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py` directamente sin autorización explícita del propietario del repositorio.
+- Todos los nuevos módulos deben ser **no intrusivos** (no alteran el núcleo principal).
+- El código nuevo debe estar **comentado en español**.
+- Mantener compatibilidad con **Python 3.8+**.
+- No eliminar ni sobrescribir integraciones existentes (CoPaw, Goose).
+
+## Estructura del Proyecto
+
+| Archivo | Descripción |
+|---|---|
+| `NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py` | Motor principal de IA (**NO TOCAR**) |
+| `NEXUS_OMNI_INSTALAR_v4_Version8.bat` | Instalador Windows |
+| `goose_extension_nexus.py` | Extensión MCP para Goose (servidor stdio) |
+| `goose_launcher.py` | Launcher de Goose con extensión NEXUS |
+| `nexus_recipe.yaml` | Receta YAML para workflows autónomos |
+| `requirements.txt` | Dependencias del proyecto |
+| `README.md` | Documentación principal |
+
+## Convenciones de Código
+
+- **Idioma:** comentarios, docstrings y mensajes de usuario en español.
+- **Estilo:** PEP 8; funciones con docstrings descriptivos.
+- **Módulos nuevos:** deben importar el núcleo NEXUS de forma opcional (try/except) para no romper entornos sin el motor completo.
+- **Errores:** siempre capturar excepciones específicas; evitar `except Exception` genérico salvo en bucles de servidor.
+
+## Integración con Goose
+
+La extensión MCP (`goose_extension_nexus.py`) implementa el protocolo JSON-RPC sobre stdio.
+
+### Herramientas disponibles
+
+| Herramienta | Descripción |
+|---|---|
+| `nexus_query(prompt)` | Envía una consulta al motor NEXUS y retorna la respuesta |
+| `nexus_status()` | Retorna el estado actual del sistema (versión, modo, motor) |
+
+### Métodos MCP soportados
+
+- `tools/list` — lista las herramientas disponibles
+- `tools/call` — ejecuta una herramienta
+
+## Comandos Útiles
+
+```bash
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Iniciar sesión interactiva con Goose
+python goose_launcher.py
+
+# Ejecutar la receta de análisis autónomo
+python goose_launcher.py --recipe nexus_recipe.yaml
+
+# Probar la extensión MCP manualmente (modo stdio)
+echo '{"method":"tools/list","params":{}}' | python goose_extension_nexus.py
+echo '{"method":"tools/call","params":{"name":"nexus_status","arguments":{}}}' | python goose_extension_nexus.py
+```
+
+## LLMs Recomendados
+
+- **Offline:** Ollama con `llama3`, `mistral` o `deepseek-r1`
+- **Cloud:** Claude 3.5 Sonnet, GPT-4o, Gemini Pro
+
+## Recursos
+
+- [block/goose en GitHub](https://github.com/block/goose)
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io)
+- [NEXUS-OMNI-AI en GitHub](https://github.com/oszara/NEXUS-OMNI-AI)

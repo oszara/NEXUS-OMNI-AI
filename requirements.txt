@@ -2,3 +2,8 @@ ollama
 fastapi
 uvicorn
 pytest
+copaw
+ollama
+goose-ai
+mcp
+pyyaml
