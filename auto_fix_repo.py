@@ -41,6 +41,9 @@ if file_missing(".github/workflows/ci.yml"):
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
