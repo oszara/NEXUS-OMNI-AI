@@ -10,19 +10,21 @@ def revisar_codigo(ruta_archivo):
     ruta = Path(ruta_archivo)
 
     if not ruta.exists():
-        return "Archivo no encontrado."
+        return f"Archivo no encontrado: {ruta_archivo}"
 
     codigo = ruta.read_text(encoding="utf-8")
 
     system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
 
-    response = ollama.chat(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": codigo}
-        ],
-        options={"num_predict": 2048}
-    )
-
-    return response["message"]["content"]
+    try:
+        response = ollama.chat(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": codigo}
+            ],
+            options={"num_predict": 2048}
+        )
+        return response["message"]["content"]
+    except Exception as e:
+        return f"[Error al revisar {ruta_archivo}]: {e}"

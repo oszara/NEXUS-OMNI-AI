@@ -3,6 +3,9 @@ name: NEXUS Code Review
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   review:
     runs-on: ubuntu-latest
