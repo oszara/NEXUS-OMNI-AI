@@ -806,6 +806,8 @@ AGENTES={
         "system":"Eres EXPERTO EN INVESTIGACION. Busca hechos, verifica, sintetiza."},
     "integrador":   {"modelo":"deepseek-r1","fallback":"phi3","color":"#facc15","icono":"🔗","nombre":"Integrador","motor":"crewai",
         "system":"Eres el INTEGRADOR FINAL. Combina respuestas en UNA respuesta cohesiva y completa."},
+    "code_review":  {"modelo":"qwen3-coder","fallback":"phi3","color":"#00ffaa","icono":"🔍","nombre":"Code Reviewer","motor":"ollama",
+        "system":"You are a senior software engineer and security auditor. Analyze the provided code and: 1. Identify syntax errors. 2. Identify logical bugs. 3. Identify security vulnerabilities. 4. Identify performance problems. 5. Identify bad practices. Return output with FINDINGS (severity + description) and CORRECTED CODE."},
 }
 
 def modelos_ok():
