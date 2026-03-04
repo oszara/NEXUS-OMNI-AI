@@ -1,5 +1,11 @@
 # NEXUS OMNI AI
 
+Sistema de IA offline multi-agente.
+Proyecto base inicial.
+
+## 📖 Documentación
+
+- **[Manual de Usuario Completo](MANUAL_USUARIO.md)** — Guía paso a paso de todas las funciones, agentes y herramientas.
 **NEXUS OMNI Multi-Agente IA v4.0** — Asistente de inteligencia artificial offline y multi-agente, con integración de [block/goose](https://github.com/block/goose) vía MCP y soporte opcional de [CoPaw](https://github.com/agentscope-ai/CoPaw) (AgentScope-AI / Alibaba).
 
 ---
