@@ -35,3 +35,8 @@ python-docx
 # Voz
 pyttsx3
 SpeechRecognition
+copaw
+ollama
+goose-ai
+mcp
+pyyaml
