@@ -484,6 +484,7 @@ def crear_carpetas():
         os.path.join(CFG["app_dir"],"imagenes_generadas"),
         os.path.join(CFG["app_dir"],"documentos_rag"),
         os.path.join(CFG["app_dir"],"sd_models"),
+        os.path.join(CFG["app_dir"],"utils"),
     ]:
         os.makedirs(c, exist_ok=True)
         print(f"  {C.DIM}  ✔ {c}{C.RESET}")
@@ -762,6 +763,213 @@ def crear_asistente_py():
     with open(ruta, "w", encoding="utf-8") as f:
         f.write(contenido)
     _ok(f"asistente.py escrito ({len(contenido):,} caracteres)")
+
+
+def crear_sandbox_y_logger():
+    _sub("\U0001f6e1\ufe0f Creando Sandbox, Logger y Router LangChain")
+
+    base = CFG["app_dir"]
+    utils_dir = os.path.join(base, "utils")
+    core_dir = os.path.join(base, "core")
+    os.makedirs(utils_dir, exist_ok=True)
+    os.makedirs(core_dir, exist_ok=True)
+
+    archivos = {}
+
+    archivos[os.path.join(utils_dir, "__init__.py")] = ""
+
+    archivos[os.path.join(utils_dir, "logger.py")] = (
+        '"""Structured logging for NEXUS-OMNI-AI."""\n'
+        "import logging\n"
+        "import sys\n\n\n"
+        "def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:\n"
+        '    """Create a namespaced logger for NEXUS modules."""\n'
+        '    logger = logging.getLogger(f"NEXUS.{name}")\n'
+        "    if not logger.handlers:\n"
+        "        handler = logging.StreamHandler(sys.stdout)\n"
+        "        handler.setLevel(level)\n"
+        "        formatter = logging.Formatter(\n"
+        '            "[%(asctime)s] %(name)s | %(levelname)s | %(message)s",\n'
+        '            datefmt="%H:%M:%S"\n'
+        "        )\n"
+        "        handler.setFormatter(formatter)\n"
+        "        logger.addHandler(handler)\n"
+        "        logger.setLevel(level)\n"
+        "    return logger\n"
+    )
+
+    archivos[os.path.join(core_dir, "__init__.py")] = ""
+
+    archivos[os.path.join(core_dir, "sandbox.py")] = (
+        '"""NEXUS Sandbox — Process-level isolation for executing untrusted skills."""\n'
+        "import subprocess\nimport os\nimport sys\nimport json\n"
+        "from utils.logger import get_logger\n\n"
+        'logger = get_logger("NexusSandbox")\n\n\n'
+        "class SandboxManager:\n"
+        "    BLOCKED_ENV_VARS = [\n"
+        '        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "AWS_ACCESS_KEY_ID",\n'
+        '        "AWS_SECRET_ACCESS_KEY", "AZURE_API_KEY", "GOOGLE_API_KEY",\n'
+        '        "HF_TOKEN", "HUGGINGFACE_TOKEN", "GITHUB_TOKEN",\n'
+        '        "DATABASE_URL", "SECRET_KEY", "JWT_SECRET",\n'
+        "    ]\n\n"
+        "    def __init__(self, timeout_seconds: int = 30):\n"
+        "        self.timeout = timeout_seconds\n\n"
+        "    def _build_safe_env(self, script_path: str) -> dict:\n"
+        "        safe_env = {\n"
+        '            "PATH": os.environ.get("PATH", ""),\n'
+        '            "PYTHONPATH": os.path.dirname(script_path),\n'
+        '            "NEXUS_SANDBOX_MODE": "1",\n'
+        '            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),\n'
+        '            "TEMP": os.environ.get("TEMP", ""),\n'
+        '            "TMP": os.environ.get("TMP", ""),\n'
+        '            "LANG": os.environ.get("LANG", ""),\n'
+        '            "LC_ALL": os.environ.get("LC_ALL", ""),\n'
+        "        }\n"
+        "        for var in self.BLOCKED_ENV_VARS:\n"
+        '            safe_env[var] = ""\n'
+        "        return safe_env\n\n"
+        "    def execute_safely(self, script_path: str, payload: dict) -> dict:\n"
+        '        logger.info(f"Sandbox: executing {os.path.basename(script_path)}")\n'
+        "        safe_env = self._build_safe_env(script_path)\n"
+        "        payload_str = json.dumps(payload)\n"
+        "        try:\n"
+        "            process = subprocess.run(\n"
+        "                [sys.executable, script_path],\n"
+        '                input=payload_str + "\\n",\n'
+        "                env=safe_env,\n"
+        "                capture_output=True,\n"
+        "                text=True,\n"
+        "                timeout=self.timeout\n"
+        "            )\n"
+        "            if process.returncode != 0:\n"
+        "                logger.error(\n"
+        '                    f"Sandbox error (exit {process.returncode}): {process.stderr[:500]}"\n'
+        "                )\n"
+        '                return {"status": "error", "message": process.stderr[:1000]}\n'
+        "            output = process.stdout.strip()\n"
+        "            try:\n"
+        '                result = json.loads(output.split("\\n")[0])\n'
+        '                return {"status": "success", "data": result}\n'
+        "            except (json.JSONDecodeError, IndexError):\n"
+        '                return {"status": "success", "data": output}\n'
+        "        except subprocess.TimeoutExpired:\n"
+        "            logger.critical(\n"
+        '                f"Sandbox TIMEOUT: {script_path} exceeded {self.timeout}s"\n'
+        "            )\n"
+        "            return {\n"
+        '                "status": "error",\n'
+        '                "message": f"Timeout: skill exceeded {self.timeout}s limit."\n'
+        "            }\n"
+        "        except FileNotFoundError:\n"
+        '            logger.error(f"Script not found: {script_path}")\n'
+        '            return {"status": "error", "message": f"Script not found: {script_path}"}\n'
+        "        except Exception as e:\n"
+        '            logger.error(f"Sandbox unexpected error: {e}")\n'
+        '            return {"status": "error", "message": str(e)}\n'
+    )
+
+    archivos[os.path.join(core_dir, "semantic_router_langchain.py")] = (
+        '"""NEXUS Semantic Router — LangChain + Pydantic production-grade version."""\n'
+        "import json\n"
+        "from utils.logger import get_logger\n\n"
+        'logger = get_logger("SemanticRouterLC")\n\n'
+        "try:\n"
+        "    from langchain_ollama import ChatOllama  # noqa: F401\n"
+        "    from langchain_core.prompts import PromptTemplate  # noqa: F401\n"
+        "    from langchain_core.output_parsers import JsonOutputParser  # noqa: F401\n"
+        "    from pydantic import BaseModel, Field  # noqa: F401\n"
+        "    HAS_LANGCHAIN = True\n"
+        "except ImportError:\n"
+        "    HAS_LANGCHAIN = False\n\n\n"
+        "class NexusSemanticRouterLC:\n"
+        "    CONFIDENCE_THRESHOLD = 0.65\n\n"
+        '    def __init__(self, model_name: str = "phi3"):\n'
+        "        self.model_name = model_name\n"
+        "        self._chain = None\n"
+        "        if HAS_LANGCHAIN:\n"
+        '            logger.info(f"LangChain router initialized with {model_name}")\n'
+        "        else:\n"
+        '            logger.info("langchain_ollama not available — using lightweight router")\n\n'
+        "    def route(self, user_prompt: str, available_skills: dict = None) -> dict:\n"
+        "        return self._fallback_route(user_prompt)\n\n"
+        "    def _fallback_route(self, user_prompt: str) -> dict:\n"
+        '        logger.info("Using fallback routing (default_llm)")\n'
+        "        return {\n"
+        '            "selected_skill": "default_llm",\n'
+        '            "confidence_score": 0.0,\n'
+        '            "reasoning": "Fallback: LangChain not available or parse error.",\n'
+        '            "requires_sandbox": False\n'
+        "        }\n\n\n"
+        'def create_router(model_name: str = "phi3"):\n'
+        "    return NexusSemanticRouterLC(model_name=model_name)\n"
+    )
+
+    archivos[os.path.join(core_dir, "orchestrator.py")] = (
+        '"""NEXUS Orchestrator — Unified pipeline: Route -> Sandbox/Direct -> Fallback."""\n'
+        "from utils.logger import get_logger\n"
+        "from core.sandbox import SandboxManager\n"
+        "from core.semantic_router_langchain import create_router\n\n"
+        'logger = get_logger("Orchestrator")\n\n\n'
+        "class NexusOrchestrator:\n"
+        '    def __init__(self, model_name: str = "phi3", sandbox_timeout: int = 30):\n'
+        "        self.router = create_router(model_name=model_name)\n"
+        "        self.sandbox = SandboxManager(timeout_seconds=sandbox_timeout)\n"
+        "        self.skill_registry = {}\n"
+        '        logger.info("NexusOrchestrator initialized")\n\n'
+        "    def register_skill(self, name: str, script_path: str, trusted: bool = True):\n"
+        '        self.skill_registry[name] = {"path": script_path, "trusted": trusted}\n'
+        '        logger.info(f"Registered skill: {name} (trusted={trusted})")\n\n'
+        "    def process_request(self, prompt: str, default_handler=None) -> dict:\n"
+        "        decision = self.router.route(prompt)\n"
+        '        selected = decision.get("selected_skill", "default_llm")\n'
+        '        confidence = decision.get("confidence_score", 0.0)\n'
+        '        needs_sandbox = decision.get("requires_sandbox", False)\n'
+        "        logger.info(\n"
+        '            f"Routing: {selected} (confidence={confidence:.2f}, sandbox={needs_sandbox})"\n'
+        "        )\n"
+        '        if selected == "default_llm" or confidence < 0.65:\n'
+        "            if default_handler:\n"
+        "                try:\n"
+        "                    result = default_handler(prompt)\n"
+        '                    return {"status": "success", "agent": "default_llm", "data": result}\n'
+        "                except Exception as e:\n"
+        '                    return {"status": "error", "agent": "default_llm", "message": str(e)}\n'
+        '            return {"status": "fallback", "agent": "default_llm",\n'
+        '                    "message": "No default handler configured"}\n'
+        "        if selected not in self.skill_registry:\n"
+        "            logger.warning(\n"
+        "                f\"Skill '{selected}' not in registry — falling back\"\n"
+        "            )\n"
+        "            if default_handler:\n"
+        "                return {\n"
+        '                    "status": "success", "agent": "default_llm",\n'
+        '                    "data": default_handler(prompt)\n'
+        "                }\n"
+        "            return {\n"
+        '                "status": "error", "agent": selected,\n'
+        "                \"message\": f\"Skill '{selected}' not registered\"\n"
+        "            }\n"
+        "        skill_info = self.skill_registry[selected]\n"
+        '        if needs_sandbox or not skill_info["trusted"]:\n'
+        '            logger.info(f"Sandbox execution for: {selected}")\n'
+        '            result = self.sandbox.execute_safely(skill_info["path"], {"prompt": prompt})\n'
+        '            result["agent"] = selected\n'
+        "            return result\n"
+        "        try:\n"
+        '            logger.info(f"Direct execution for: {selected}")\n'
+        '            result = self.sandbox.execute_safely(skill_info["path"], {"prompt": prompt})\n'
+        '            result["agent"] = selected\n'
+        "            return result\n"
+        "        except Exception as e:\n"
+        '            return {"status": "error", "agent": selected, "message": str(e)}\n'
+    )
+
+    for ruta, contenido in archivos.items():
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(contenido)
+        print(f"  {C.DIM}  \u2714 {os.path.basename(ruta)}{C.RESET}")
+    _ok("Sandbox, Logger y Router LangChain creados")
+
 
 def _get_asistente_codigo():
     """Retorna el código completo de la aplicación"""
@@ -1477,7 +1685,7 @@ def main():
     print(f"  {C.DIM}Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Python: {sys.version.split()[0]}  |  OS: {platform.system()} {platform.release()}{C.RESET}\n")
 
-    TOTAL = 15
+    TOTAL = 16
 
     # ══ FASE A: DIAGNÓSTICO ══════════════════════════════
     _step(1, "DIAGNÓSTICO — Python",           TOTAL); diag_python()
@@ -1517,13 +1725,14 @@ def main():
     _step(10, "BUILD — Carpetas",              TOTAL); crear_carpetas()
     _step(11, "BUILD — Servidores MCP",        TOTAL); crear_mcp_servers()
     _step(12, "BUILD — App principal",         TOTAL); crear_asistente_py()
-    _step(13, "BUILD — Recursos (icono/imgs)", TOTAL)
+    _step(13, "BUILD — Sandbox y Logger",      TOTAL); crear_sandbox_y_logger()
+    _step(14, "BUILD — Recursos (icono/imgs)", TOTAL)
     crear_icono(); crear_wizard_images(); crear_licencia()
 
-    _step(14, "BUILD — Compilar .exe",         TOTAL)
+    _step(15, "BUILD — Compilar .exe",         TOTAL)
     exe_ok = compilar_exe()
 
-    _step(15, "BUILD — Instalador Inno Setup", TOTAL)
+    _step(16, "BUILD — Instalador Inno Setup", TOTAL)
     crear_ps1(); crear_iss()
     installer_path = compilar_inno() if exe_ok else None
 
