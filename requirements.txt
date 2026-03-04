@@ -3,3 +3,4 @@ ollama
 goose-ai
 mcp
 pyyaml
+pytest
