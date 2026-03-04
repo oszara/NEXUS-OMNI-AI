@@ -30,7 +30,7 @@ echo [1/8] Verificando Python 3.11...
 set PYTHON311=
 if exist "%PY311%\python.exe" (
     set "PYTHON311=%PY311%\python.exe"
-    echo [OK] Python 3.11 encontrado: %PYTHON311%
+    echo [OK] Python 3.11 encontrado: %PY311%\python.exe
 ) else (
     echo [INFO] Python 3.11 no encontrado. Descargando e instalando...
     powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python-3.11.9-amd64.exe'" 2>nul
@@ -114,7 +114,7 @@ echo - PyInstaller...
 "%PYTHON311%" -m pip install pyinstaller --quiet --timeout 180 2>nul
 
 echo - LangChain + LangGraph...
-"%PYTHON311%" -m pip install "langchain==0.3.25" "langchain-ollama==0.3.3" "langchain-community==0.3.24" "langgraph==0.4.1" --quiet --timeout 300 2>nul
+"%PYTHON311%" -m pip install "langchain==0.3.25" "langchain-ollama==0.3.3" "langchain-community==0.3.27" "langgraph==0.4.1" --quiet --timeout 300 2>nul
 
 echo - Forzando dependencias criticas POST-LangChain...
 "%PYTHON311%" -m pip install --force-reinstall "huggingface-hub>=1.3.0,<2.0" --quiet --timeout 180 2>nul

@@ -61,6 +61,7 @@ if _COPAW_DISPONIBLE and _ReMe is not None:
 # Backend de fichero JSON (fallback cuando CoPaw no está disponible)
 # ---------------------------------------------------------------------------
 
+
 def _leer_json() -> dict:
     """Lee el archivo de memoria JSON y retorna su contenido como diccionario."""
     if not os.path.exists(_ARCHIVO_MEMORIA):

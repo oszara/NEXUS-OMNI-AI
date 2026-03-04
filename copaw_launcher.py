@@ -34,7 +34,6 @@ Variables de entorno opcionales
 """
 
 import os
-import sys
 
 from copaw_memory_nexus import load_memory, save_memory
 from copaw_skill_nexus import NexusOmniSkill
