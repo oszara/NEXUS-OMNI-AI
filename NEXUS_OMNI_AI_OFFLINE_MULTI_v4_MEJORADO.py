@@ -484,6 +484,8 @@ def crear_carpetas():
         os.path.join(CFG["app_dir"],"imagenes_generadas"),
         os.path.join(CFG["app_dir"],"documentos_rag"),
         os.path.join(CFG["app_dir"],"sd_models"),
+        os.path.join(CFG["app_dir"],"core"),
+        os.path.join(CFG["app_dir"],"schemas"),
     ]:
         os.makedirs(c, exist_ok=True)
         print(f"  {C.DIM}  ✔ {c}{C.RESET}")
@@ -755,6 +757,443 @@ if __name__=="__main__":
         print(f"  {C.DIM}  ✔ {nombre}{C.RESET}")
     _ok("7 servidores MCP creados")
 
+def crear_router_files():
+    _sub("🧠 Creando archivos del router inteligente")
+    app_dir = CFG["app_dir"]
+
+    archivos = {}
+
+    archivos[("schemas", "__init__.py")] = ""
+
+    archivos[("schemas", "routing_schema.py")] = '''"""Strict schema for routing decisions."""
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+class RoutingDecision(BaseModel):
+    """Validated routing decision from the semantic router."""
+    agent: Literal[
+        "codigo", "razonamiento", "redaccion", "datos",
+        "investigacion", "orquestador", "fallback"
+    ]
+    confidence: float = Field(ge=0.0, le=1.0)
+    requires_sandbox: bool = False
+    reasoning: str = ""
+    source: Literal["heuristic", "embedding", "llm", "fallback"] = "fallback"
+'''
+
+    archivos[("core", "__init__.py")] = ""
+
+    archivos[("core", "heuristic_engine.py")] = '''"""Deterministic heuristic-based routing — zero latency."""
+import re
+from schemas.routing_schema import RoutingDecision
+
+
+class HeuristicEngine:
+    """Fast pattern-matching router. Returns None if no pattern matches with high confidence."""
+
+    PATTERNS = {
+        "codigo": [
+            r"\\bdef\\b", r"\\bclass\\b", r"\\bimport\\b", r"\\bfunction\\b",
+            r"```", r"\\bpython\\b", r"\\bjavascript\\b", r"\\bjava\\b", r"\\bsql\\b",
+            r"\\bapi\\b", r"\\bdebug\\b", r"\\berror\\b.*código", r"\\bscript\\b",
+            r"\\bprograma\\b.*que", r"\\bcódigo\\b", r"\\bfunción\\b.*que",
+            r"\\bcorrige\\b.*código", r"\\brefactori", r"\\bgit\\b",
+        ],
+        "razonamiento": [
+            r"\\bexplica\\b.*paso", r"\\bpor\\s+qué\\b", r"\\bdemuestra\\b",
+            r"\\blógica\\b", r"\\bmatemátic", r"\\bcalcula\\b", r"\\banaliza\\b.*lógic",
+            r"\\bpaso\\s+a\\s+paso\\b", r"\\bradical\\b", r"\\bderivada\\b",
+            r"\\bintegral\\b", r"\\becuación\\b", r"\\bteorema\\b",
+        ],
+        "redaccion": [
+            r"\\bescribe\\b.*email", r"\\bredacta\\b", r"\\btraduce\\b",
+            r"\\bresume\\b", r"\\bresumen\\b", r"\\bcarta\\b", r"\\bensayo\\b",
+            r"\\btexto\\b.*profesional", r"\\bcorrige\\b.*texto",
+            r"\\bmejora\\b.*redacción", r"\\bemail\\b", r"\\binforme\\b",
+        ],
+        "datos": [
+            r"\\bSELECT\\b", r"\\bGROUP\\s+BY\\b", r"\\bJOIN\\b",
+            r"\\bdataframe\\b", r"\\bestadístic", r"\\bgráfico\\b",
+            r"\\bcsv\\b", r"\\bexcel\\b", r"\\bpandas\\b", r"\\bnumpy\\b",
+            r"\\banálisis\\b.*datos", r"\\bregresión\\b", r"\\bcorrelación\\b",
+        ],
+        "investigacion": [
+            r"\\binvestiga\\b", r"\\bbusca\\b.*información",
+            r"\\bverifica\\b", r"\\bcompara\\b.*entre",
+            r"\\bqué\\s+es\\b", r"\\bcuál\\s+es\\b", r"\\bhistoria\\b.*de\\b",
+            r"\\bdefinición\\b", r"\\bdiferencia\\b.*entre",
+        ],
+    }
+
+    MIN_MATCHES_HIGH = 3
+    MIN_MATCHES_MED = 2
+    MIN_MATCHES_LOW = 1
+
+    def route(self, prompt):
+        """Try to route using heuristics. Returns None if not confident enough."""
+        scores = {}
+        prompt_lower = prompt.lower()
+
+        for agent, patterns in self.PATTERNS.items():
+            count = sum(1 for p in patterns if re.search(p, prompt_lower))
+            if count > 0:
+                scores[agent] = count
+
+        if not scores:
+            return None
+
+        best_agent = max(scores, key=scores.get)
+        best_count = scores[best_agent]
+
+        if best_count >= self.MIN_MATCHES_HIGH:
+            confidence = 0.90
+        elif best_count >= self.MIN_MATCHES_MED:
+            confidence = 0.75
+        else:
+            return None
+
+        sorted_scores = sorted(scores.values(), reverse=True)
+        if len(sorted_scores) >= 2 and sorted_scores[0] - sorted_scores[1] <= 1:
+            return None
+
+        return RoutingDecision(
+            agent=best_agent,
+            confidence=confidence,
+            requires_sandbox=False,
+            reasoning=f"Heuristic: {best_count} pattern matches for \'{best_agent}\'",
+            source="heuristic",
+        )
+'''
+
+    archivos[("core", "embedding_engine.py")] = '''"""Embedding-based semantic routing using sentence-transformers."""
+import numpy as np
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+
+from schemas.routing_schema import RoutingDecision
+
+
+class EmbeddingEngine:
+    """Routes prompts using cosine similarity against agent descriptions."""
+
+    AGENT_DESCRIPTIONS = {
+        "codigo": (
+            "programación python javascript java sql código depuración software "
+            "programming code debug script function class API desarrollo developer "
+            "error fix bug compilar ejecutar terminal"
+        ),
+        "razonamiento": (
+            "lógica matemáticas análisis paso a paso razonamiento deducción "
+            "logic math reasoning step by step calculate proof theorem "
+            "ecuación problema resolver demostrar"
+        ),
+        "redaccion": (
+            "texto redacción escritura resumen traducción email carta ensayo "
+            "writing summary translation professional document informe "
+            "corregir gramática estilo mejora"
+        ),
+        "datos": (
+            "datos estadística SQL gráfico análisis dataframe pandas numpy "
+            "data statistics chart plot csv excel regression correlation "
+            "base de datos tabla consulta"
+        ),
+        "investigacion": (
+            "investigación búsqueda hechos verificación síntesis información "
+            "research search facts verification synthesis compare "
+            "definición historia contexto"
+        ),
+    }
+
+    CONFIDENCE_THRESHOLD = 0.35
+
+    def __init__(self, model_name="all-MiniLM-L6-v2"):
+        self._model = None
+        self._model_name = model_name
+        self._agent_embeddings = {}
+
+    def _ensure_loaded(self):
+        if self._model is not None:
+            return True
+        if SentenceTransformer is None:
+            return False
+        try:
+            self._model = SentenceTransformer(self._model_name)
+            for agent, desc in self.AGENT_DESCRIPTIONS.items():
+                self._agent_embeddings[agent] = self._model.encode(desc, normalize_embeddings=True)
+            return True
+        except Exception:
+            return False
+
+    def route(self, prompt):
+        """Route using embedding similarity. Returns None if not confident."""
+        if not self._ensure_loaded():
+            return None
+
+        prompt_embedding = self._model.encode(prompt, normalize_embeddings=True)
+
+        scores = {}
+        for agent, agent_emb in self._agent_embeddings.items():
+            similarity = float(np.dot(prompt_embedding, agent_emb))
+            scores[agent] = similarity
+
+        if not scores:
+            return None
+
+        best_agent = max(scores, key=scores.get)
+        best_score = scores[best_agent]
+
+        if best_score < self.CONFIDENCE_THRESHOLD:
+            return None
+
+        confidence = min(0.85, max(0.55, best_score))
+
+        return RoutingDecision(
+            agent=best_agent,
+            confidence=confidence,
+            requires_sandbox=False,
+            reasoning=f"Embedding similarity: {best_score:.3f} for \'{best_agent}\'",
+            source="embedding",
+        )
+'''
+
+    archivos[("core", "hybrid_router.py")] = '''"""Hybrid router: heuristic → embedding → LLM fallback cascade."""
+import json
+
+try:
+    import ollama as ollama_client
+except ImportError:
+    ollama_client = None
+
+from schemas.routing_schema import RoutingDecision
+from core.heuristic_engine import HeuristicEngine
+from core.embedding_engine import EmbeddingEngine
+
+
+class HybridRouter:
+    """Three-tier cascading router with increasing latency/accuracy."""
+
+    LLM_SYSTEM_PROMPT = (
+        "Eres el NEXUS Semantic Router. "
+        "Analiza el prompt del usuario y responde SOLO con JSON válido:\\n\\n"
+        \'{"agent": "...", "confidence": 0.0-1.0, \'
+        \'"requires_sandbox": true/false, \'
+        \'"reasoning": "breve explicación"}\\n\\n\'
+        "Agentes disponibles:\\n"
+        "- codigo: programación, scripts, debug, APIs\\n"
+        "- razonamiento: lógica, matemáticas, análisis paso a paso\\n"
+        "- redaccion: textos, resúmenes, traducción, emails\\n"
+        "- datos: estadística, SQL, gráficos, análisis de datos\\n"
+        "- investigacion: búsqueda de hechos, verificación, síntesis\\n"
+        "- fallback: cuando ningún agente especializado aplica\\n\\n"
+        "Responde ÚNICAMENTE con el JSON. Sin markdown, sin explicaciones."
+    )
+
+    VALID_AGENTS = {"codigo", "razonamiento", "redaccion", "datos", "investigacion", "orquestador", "fallback"}
+
+    def __init__(self, llm_model="phi3"):
+        self.heuristic = HeuristicEngine()
+        self.embedding = EmbeddingEngine()
+        self.llm_model = llm_model
+
+    def route(self, prompt):
+        """Route through cascading tiers: heuristic → embedding → LLM → fallback."""
+        decision = self.heuristic.route(prompt)
+        if decision is not None:
+            return decision
+
+        decision = self.embedding.route(prompt)
+        if decision is not None:
+            return decision
+
+        decision = self._llm_classify(prompt)
+        if decision is not None:
+            return decision
+
+        return RoutingDecision(
+            agent="fallback",
+            confidence=0.0,
+            requires_sandbox=False,
+            reasoning="All routing tiers failed — using fallback",
+            source="fallback",
+        )
+
+    def _llm_classify(self, prompt):
+        if ollama_client is None:
+            return None
+
+        try:
+            response = ollama_client.chat(
+                model=self.llm_model,
+                messages=[
+                    {"role": "system", "content": self.LLM_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                options={"num_predict": 256},
+            )
+            raw = response["message"]["content"].strip()
+
+            if raw.startswith("```"):
+                lines = raw.split("\\n")
+                raw = "\\n".join(
+                    lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+                )
+
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(raw[start:end])
+                agent = parsed.get("agent", "fallback")
+                if agent not in self.VALID_AGENTS:
+                    agent = "fallback"
+                confidence = float(parsed.get("confidence", 0.5))
+                confidence = max(0.0, min(1.0, confidence))
+
+                if confidence < 0.65:
+                    agent = "fallback"
+
+                return RoutingDecision(
+                    agent=agent,
+                    confidence=confidence,
+                    requires_sandbox=bool(parsed.get("requires_sandbox", False)),
+                    reasoning=parsed.get("reasoning", "LLM classification"),
+                    source="llm",
+                )
+        except Exception:
+            pass
+
+        return None
+'''
+
+    archivos[("core", "response_validator.py")] = '''"""Deterministic response validator — no LLM calls."""
+import re
+
+
+class ResponseValidator:
+    """Validates agent responses without calling any LLM."""
+
+    MIN_LENGTH = 30
+    MAX_ECHO_SIMILARITY = 0.85
+
+    REFUSAL_PATTERNS = [
+        r"\\bno puedo\\b",
+        r"\\bno tengo capacidad\\b",
+        r"\\bi cannot\\b",
+        r"\\bi can\'?t\\b",
+        r"\\bno es posible\\b",
+        r"\\bfuera de mi\\b.*\\bcapacidad\\b",
+        r"\\bno estoy capacitado\\b",
+        r"\\bsorry\\b.*\\bcan\'?t\\b",
+    ]
+
+    ERROR_PATTERNS = [
+        r"\\[Error",
+        r"connection refused",
+        r"ConnectionError",
+        r"Traceback \\(most recent",
+        r"HTTPError",
+        r"timeout",
+        r"ECONNREFUSED",
+        r"model.*not found",
+    ]
+
+    def validate(self, prompt, response):
+        """Validate a response. Returns (is_valid, reason)."""
+        if not response or len(response.strip()) < self.MIN_LENGTH:
+            return False, "too_short"
+
+        response_stripped = response.strip()
+
+        if self._is_echo(prompt, response_stripped):
+            return False, "echo"
+
+        response_lower = response_stripped.lower()
+        for pattern in self.REFUSAL_PATTERNS:
+            if re.search(pattern, response_lower):
+                return False, "refusal"
+
+        for pattern in self.ERROR_PATTERNS:
+            if re.search(pattern, response_stripped, re.IGNORECASE):
+                return False, "error_exposed"
+
+        sentences = [s.strip() for s in re.split(r\'[.!?]\\s+\', response_stripped) if len(s.strip()) > 10]
+        if len(sentences) >= 3:
+            from collections import Counter
+            counts = Counter(sentences)
+            most_common_count = counts.most_common(1)[0][1] if counts else 0
+            if most_common_count >= 3:
+                return False, "repetitive"
+
+        return True, "ok"
+
+    def _is_echo(self, prompt, response):
+        prompt_clean = prompt.strip().lower()
+        response_clean = response.strip().lower()
+
+        if prompt_clean == response_clean:
+            return True
+
+        if response_clean.startswith(prompt_clean):
+            extra = response_clean[len(prompt_clean):].strip()
+            if len(extra) < 20:
+                return True
+
+        return False
+'''
+
+    archivos[("core", "model_escalator.py")] = '''"""Model escalation — escalate to more capable model when response is invalid."""
+
+
+class ModelEscalator:
+    """Escalates to a more capable model when the current one fails."""
+
+    ESCALATION_CHAINS = {
+        "phi3": "mistral",
+        "mistral": "deepseek-r1",
+        "qwen3": "deepseek-r1",
+        "qwen3-coder": "codestral",
+        "codestral": "deepseek-r1",
+    }
+
+    def __init__(self, available_models_fn=None):
+        self._available_fn = available_models_fn
+
+    def get_escalation(self, current_model):
+        next_model = self.ESCALATION_CHAINS.get(current_model)
+        if next_model is None:
+            return None
+
+        if self._available_fn is not None:
+            available = self._available_fn()
+            if not any(m.startswith(next_model) for m in available):
+                return None
+
+        return next_model
+
+    def escalate(self, agent_key, current_model, prompt, system, ollama_fn=None):
+        next_model = self.get_escalation(current_model)
+        if next_model is None:
+            return None
+
+        if ollama_fn is None:
+            return None
+
+        try:
+            return ollama_fn(next_model, system, prompt)
+        except Exception:
+            return None
+'''
+
+    for (subdir, nombre), contenido in archivos.items():
+        ruta = os.path.join(app_dir, subdir, nombre)
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(contenido)
+        print(f"  {C.DIM}  ✔ {subdir}/{nombre}{C.RESET}")
+    _ok("Router inteligente creado (8 archivos)")
+
 def crear_asistente_py():
     _sub("🐍 Creando nexus_omni_app.py")
     ruta = os.path.join(CFG["app_dir"], "asistente.py")
@@ -914,8 +1353,57 @@ def mcp_call(srv,tool,args,timeout=20):
         return r.stderr or "Sin respuesta"
     except Exception as e: return f"Error MCP: {e}"
 
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from core.hybrid_router import HybridRouter
+    from core.response_validator import ResponseValidator
+    from core.model_escalator import ModelEscalator
+    _router = HybridRouter()
+    _validator = ResponseValidator()
+    _escalator = ModelEscalator(available_models_fn=modelos_ok)
+    _SMART_ROUTING = True
+except ImportError:
+    _SMART_ROUTING = False
+
 def orquestar(preg,cb_p,cb_t):
     resultados.clear()
+
+    # ── Phase 1: Smart single-agent dispatch ──
+    if _SMART_ROUTING:
+        cb_p("orquestador","🧠 Router híbrido analizando...")
+        decision=_router.route(preg)
+        cb_t("orquestador",
+             f"Routing: {decision.agent} (confidence={decision.confidence:.2f}, source={decision.source})",
+             AGENTES["orquestador"]["color"])
+
+        if decision.agent not in ("fallback","orquestador") and decision.confidence>=0.65:
+            cb_p("orquestador",f"⚡ Ruta directa → {AGENTES[decision.agent]['icono']} {AGENTES[decision.agent]['nombre']}")
+            run_agente(decision.agent,preg,cb_p,cb_t)
+            response=resultados.get(decision.agent,"")
+
+            is_valid,reason=_validator.validate(preg,response)
+            if not is_valid:
+                cb_p(decision.agent,f"⚠️ Respuesta inválida ({reason}), escalando modelo...")
+                current_model=get_modelo(decision.agent)
+                escalated=_escalator.escalate(
+                    decision.agent,current_model,preg,
+                    AGENTES[decision.agent]["system"],_ollama
+                )
+                if escalated:
+                    is_valid2,_=_validator.validate(preg,escalated)
+                    if is_valid2:
+                        response=escalated
+                        resultados[decision.agent]=response
+                        cb_t(decision.agent,response,AGENTES[decision.agent]["color"])
+                        cb_p(decision.agent,"✅ Modelo escalado exitosamente")
+
+            cb_p("integrador","⏳ Integrando respuesta...")
+            cb_t("integrador",response,AGENTES["integrador"]["color"])
+            cb_p("integrador","✅ Respuesta directa")
+            return response
+
+    # ── Phase 2: Full multi-agent CrewAI orchestration (original behavior) ──
     cb_p("orquestador","⏳ CrewAI analizando...")
     resp=_crewai(get_modelo("orquestador"),AGENTES["orquestador"]["system"],preg)
     cb_t("orquestador",resp,AGENTES["orquestador"]["color"])
@@ -937,6 +1425,18 @@ def orquestar(preg,cb_p,cb_t):
             cfg=AGENTES[k]
             partes.append(f"\n--- {cfg['icono']} {cfg['nombre']} [{cfg['motor'].upper()}] ---\n{resultados[k]}")
     final=_crewai(get_modelo("integrador"),AGENTES["integrador"]["system"],"\n".join(partes))
+
+    if _SMART_ROUTING:
+        is_valid,reason=_validator.validate(preg,final)
+        if not is_valid:
+            current_model=get_modelo("integrador")
+            escalated=_escalator.escalate("integrador",current_model,preg,
+                                          AGENTES["integrador"]["system"],_ollama)
+            if escalated:
+                is_valid2,_=_validator.validate(preg,escalated)
+                if is_valid2:
+                    final=escalated
+
     cb_t("integrador",final,AGENTES["integrador"]["color"])
     cb_p("integrador","✅ Integración completa")
     return final
@@ -1477,7 +1977,7 @@ def main():
     print(f"  {C.DIM}Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Python: {sys.version.split()[0]}  |  OS: {platform.system()} {platform.release()}{C.RESET}\n")
 
-    TOTAL = 15
+    TOTAL = 16
 
     # ══ FASE A: DIAGNÓSTICO ══════════════════════════════
     _step(1, "DIAGNÓSTICO — Python",           TOTAL); diag_python()
@@ -1516,14 +2016,15 @@ def main():
     # ══ FASE C: CONSTRUCCIÓN ═════════════════════════════
     _step(10, "BUILD — Carpetas",              TOTAL); crear_carpetas()
     _step(11, "BUILD — Servidores MCP",        TOTAL); crear_mcp_servers()
-    _step(12, "BUILD — App principal",         TOTAL); crear_asistente_py()
-    _step(13, "BUILD — Recursos (icono/imgs)", TOTAL)
+    _step(12, "BUILD — Router inteligente",    TOTAL); crear_router_files()
+    _step(13, "BUILD — App principal",         TOTAL); crear_asistente_py()
+    _step(14, "BUILD — Recursos (icono/imgs)", TOTAL)
     crear_icono(); crear_wizard_images(); crear_licencia()
 
-    _step(14, "BUILD — Compilar .exe",         TOTAL)
+    _step(15, "BUILD — Compilar .exe",         TOTAL)
     exe_ok = compilar_exe()
 
-    _step(15, "BUILD — Instalador Inno Setup", TOTAL)
+    _step(16, "BUILD — Instalador Inno Setup", TOTAL)
     crear_ps1(); crear_iss()
     installer_path = compilar_inno() if exe_ok else None
 
