@@ -1,3 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.spec
+*.exe
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Project output
+output/
+imagenes_generadas/
+sd_models/
+memory/
+exports/
+*.log
 __pycache__/
 *.pyc
 *.pyo
