@@ -1,5 +1,43 @@
+# NEXUS OMNI Multi-Agente IA v4.0 — Dependencias
+# Instalar con: pip install -r requirements.txt
+
+# Core
+pillow
+requests
+psutil
+pydantic
+rich
+python-dotenv
+ollama
+pyinstaller
+
+# Agentes IA
+# Agentes IA
+langchain>=0.3.27,<0.4
+langchain-ollama>=0.3.3
+langchain-community>=0.3.27,<0.4
+langgraph==0.4.1
+crewai==0.86.0
+ag2
+mcp
+
+# API
+fastapi
+uvicorn
+pydantic
+python-dotenv
+
+# RAG / Vector DB
+chromadb
+sentence-transformers
+
+# Voz
+pyttsx3
+SpeechRecognition
 copaw
 ollama
 goose-ai
 mcp
+pyyaml
+pytest
 pyyaml

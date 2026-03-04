@@ -485,6 +485,8 @@ def crear_carpetas():
         os.path.join(CFG["app_dir"],"documentos_rag"),
         os.path.join(CFG["app_dir"],"sd_models"),
         os.path.join(CFG["app_dir"],"utils"),
+        os.path.join(CFG["app_dir"],"core"),
+        os.path.join(CFG["app_dir"],"schemas"),
     ]:
         os.makedirs(c, exist_ok=True)
         print(f"  {C.DIM}  ✔ {c}{C.RESET}")
@@ -756,7 +758,189 @@ if __name__=="__main__":
         print(f"  {C.DIM}  ✔ {nombre}{C.RESET}")
     _ok("7 servidores MCP creados")
 
-def crear_asistente_py():
+def crear_router_files():
+    _sub("🧠 Creando archivos del Semantic Router")
+
+    schemas_dir = os.path.join(CFG["app_dir"], "schemas")
+    core_dir    = os.path.join(CFG["app_dir"], "core")
+
+    archivos = {}
+
+    archivos[os.path.join(schemas_dir, "__init__.py")] = ""
+
+    archivos[os.path.join(schemas_dir, "routing_schema.py")] = \
+'"""Strict schema for routing decisions."""\n' \
+'from pydantic import BaseModel, Field\n' \
+'from typing import Literal\n' \
+'\n' \
+'\n' \
+'class RoutingDecision(BaseModel):\n' \
+'    """Validated routing decision from the semantic router."""\n' \
+'    agent: Literal[\n' \
+'        "codigo",\n' \
+'        "razonamiento",\n' \
+'        "redaccion",\n' \
+'        "datos",\n' \
+'        "investigacion",\n' \
+'        "orquestador",\n' \
+'        "fallback"\n' \
+'    ]\n' \
+'    confidence: float = Field(ge=0.0, le=1.0)\n' \
+'    requires_sandbox: bool\n' \
+'    reasoning: str\n'
+
+    archivos[os.path.join(core_dir, "__init__.py")] = ""
+
+    archivos[os.path.join(core_dir, "risk_analyzer.py")] = \
+'"""Deterministic risk analysis for sandbox detection."""\n' \
+'import re\n' \
+'\n' \
+'\n' \
+'class RiskAnalyzer:\n' \
+'    """Detects potentially dangerous patterns in user prompts."""\n' \
+'\n' \
+'    CODE_PATTERNS = [\n' \
+'        r"os\\.system",\n' \
+'        r"subprocess",\n' \
+'        r"eval\\s*\\(",\n' \
+'        r"exec\\s*\\(",\n' \
+'        r"rm\\s+-rf",\n' \
+'        r"__import__",\n' \
+'        r"shutil\\.rmtree",\n' \
+'        r"open\\s*\\(.+[\'\\"]w[\'\\"]",\n' \
+'        r"DROP\\s+TABLE",\n' \
+'        r"DELETE\\s+FROM",\n' \
+'        r"; *rm ",\n' \
+'        r"\\bsudo\\b",\n' \
+'    ]\n' \
+'\n' \
+'    def __init__(self):\n' \
+'        self._compiled = [re.compile(p, re.IGNORECASE) for p in self.CODE_PATTERNS]\n' \
+'\n' \
+'    def requires_sandbox(self, prompt: str) -> bool:\n' \
+'        """Return True if the prompt contains potentially dangerous patterns."""\n' \
+'        for pattern in self._compiled:\n' \
+'            if pattern.search(prompt):\n' \
+'                return True\n' \
+'        return False\n'
+
+    archivos[os.path.join(core_dir, "intent_classifier.py")] = \
+'"""Semantic intent classification using Ollama."""\n' \
+'import json\n' \
+'try:\n' \
+'    import ollama\n' \
+'except ImportError:\n' \
+'    ollama = None\n' \
+'\n' \
+'from schemas.routing_schema import RoutingDecision\n' \
+'\n' \
+'\n' \
+'class IntentClassifier:\n' \
+'    """Classifies user intent into the appropriate NEXUS agent."""\n' \
+'\n' \
+'    SYSTEM_PROMPT = (\n' \
+'        "Eres el NEXUS Semantic Router. "\n' \
+'        "Analiza el prompt del usuario y responde SOLO con JSON válido:\\n\\n"\n' \
+'        \'{"agent": "...", "confidence": 0.0-1.0, \'\n' \
+'        \'"requires_sandbox": true/false, \'\n' \
+'        \'"reasoning": "breve explicación"}\\n\\n\'\n' \
+'        "Agentes disponibles:\\n"\n' \
+'        "- codigo: programación, scripts, debug, APIs\\n"\n' \
+'        "- razonamiento: lógica, matemáticas, análisis paso a paso\\n"\n' \
+'        "- redaccion: textos, resúmenes, traducción, emails\\n"\n' \
+'        "- datos: estadística, SQL, gráficos, análisis de datos\\n"\n' \
+'        "- investigacion: búsqueda de hechos, verificación, síntesis\\n"\n' \
+'        "- orquestador: tareas complejas que necesitan múltiples agentes\\n"\n' \
+'        "- fallback: cuando ningún agente especializado aplica\\n\\n"\n' \
+'        "Responde ÚNICAMENTE con el JSON. Sin markdown, sin explicaciones."\n' \
+'    )\n' \
+'\n' \
+'    def __init__(self, model: str = "phi3"):\n' \
+'        self.model = model\n' \
+'\n' \
+'    def classify(self, prompt: str) -> RoutingDecision:\n' \
+'        """Classify a user prompt into a routing decision."""\n' \
+'        if ollama is None:\n' \
+'            return RoutingDecision(\n' \
+'                agent="fallback",\n' \
+'                confidence=0.0,\n' \
+'                requires_sandbox=False,\n' \
+'                reasoning="ollama package not available"\n' \
+'            )\n' \
+'\n' \
+'        try:\n' \
+'            response = ollama.chat(\n' \
+'                model=self.model,\n' \
+'                messages=[\n' \
+'                    {"role": "system", "content": self.SYSTEM_PROMPT},\n' \
+'                    {"role": "user", "content": prompt}\n' \
+'                ],\n' \
+'                options={"num_predict": 256}\n' \
+'            )\n' \
+'            raw = response["message"]["content"]\n' \
+'            text = raw.strip()\n' \
+'            if text.startswith("```"):\n' \
+'                lines = text.split("\\n")\n' \
+'                text = "\\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])\n' \
+'            start = text.find("{")\n' \
+'            end = text.rfind("}") + 1\n' \
+'            if start >= 0 and end > start:\n' \
+'                parsed = json.loads(text[start:end])\n' \
+'                return RoutingDecision(**parsed)\n' \
+'        except Exception:\n' \
+'            pass\n' \
+'\n' \
+'        return RoutingDecision(\n' \
+'            agent="fallback",\n' \
+'            confidence=0.0,\n' \
+'            requires_sandbox=False,\n' \
+'            reasoning="Failed to parse classifier response"\n' \
+'        )\n'
+
+    archivos[os.path.join(core_dir, "semantic_router.py")] = \
+'"""NEXUS Semantic Skill Router — routes prompts to the best agent."""\n' \
+'from core.intent_classifier import IntentClassifier\n' \
+'from core.risk_analyzer import RiskAnalyzer\n' \
+'from schemas.routing_schema import RoutingDecision\n' \
+'\n' \
+'\n' \
+'class SemanticRouter:\n' \
+'    """Routes user prompts to the optimal NEXUS agent.\n' \
+'\n' \
+'    Uses LLM-based intent classification combined with deterministic\n' \
+'    risk analysis to produce a validated routing decision.\n' \
+'    """\n' \
+'\n' \
+'    CONFIDENCE_THRESHOLD = 0.65\n' \
+'\n' \
+'    def __init__(self, model: str = "phi3"):\n' \
+'        self.classifier = IntentClassifier(model=model)\n' \
+'        self.risk_analyzer = RiskAnalyzer()\n' \
+'\n' \
+'    def route(self, prompt: str) -> RoutingDecision:\n' \
+'        """Analyze a prompt and return a routing decision."""\n' \
+'        decision = self.classifier.classify(prompt)\n' \
+'\n' \
+'        if self.risk_analyzer.requires_sandbox(prompt):\n' \
+'            decision.requires_sandbox = True\n' \
+'\n' \
+'        if decision.confidence < self.CONFIDENCE_THRESHOLD:\n' \
+'            decision = RoutingDecision(\n' \
+'                agent="fallback",\n' \
+'                confidence=decision.confidence,\n' \
+'                requires_sandbox=decision.requires_sandbox,\n' \
+'                reasoning=f"Low confidence ({decision.confidence:.2f}): {decision.reasoning}"\n' \
+'            )\n' \
+'\n' \
+'        return decision\n'
+
+    for ruta, contenido in archivos.items():
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(contenido)
+        print(f"  {C.DIM}  ✔ {os.path.relpath(ruta, CFG['app_dir'])}{C.RESET}")
+    _ok("Router files creados")
+
+
     _sub("🐍 Creando nexus_omni_app.py")
     ruta = os.path.join(CFG["app_dir"], "asistente.py")
     contenido = _get_asistente_codigo()
@@ -991,6 +1175,9 @@ TIENE_TTS       = importlib.util.find_spec("pyttsx3")          is not None
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 MCP_PATH  = os.path.join(BASE_PATH, "mcp_servers")
+sys.path.insert(0, BASE_PATH)
+from core.semantic_router import SemanticRouter
+_router = SemanticRouter()
 
 BG1="#08080f";BG2="#0f0f20";BG3="#161630";BG4="#0a0a18";BG5="#111125"
 CT="#e8e8f8";CM="#44445a";COK="#00ff88";CWN="#f0a500"
@@ -1014,6 +1201,8 @@ AGENTES={
         "system":"Eres EXPERTO EN INVESTIGACION. Busca hechos, verifica, sintetiza."},
     "integrador":   {"modelo":"deepseek-r1","fallback":"phi3","color":"#facc15","icono":"🔗","nombre":"Integrador","motor":"crewai",
         "system":"Eres el INTEGRADOR FINAL. Combina respuestas en UNA respuesta cohesiva y completa."},
+    "code_review":  {"modelo":"qwen3-coder","fallback":"phi3","color":"#00ffaa","icono":"🔍","nombre":"Code Reviewer","motor":"ollama",
+        "system":"You are a senior software engineer and security auditor. Analyze the provided code and: 1. Identify syntax errors. 2. Identify logical bugs. 3. Identify security vulnerabilities. 4. Identify performance problems. 5. Identify bad practices. Return output with FINDINGS (severity + description) and CORRECTED CODE."},
 }
 
 def modelos_ok():
@@ -1124,7 +1313,28 @@ def mcp_call(srv,tool,args,timeout=20):
 
 def orquestar(preg,cb_p,cb_t):
     resultados.clear()
-    cb_p("orquestador","⏳ CrewAI analizando...")
+
+    # Phase 1: Semantic routing (fast, lightweight)
+    cb_p("orquestador","⏳ Semantic Router analizando...")
+    try:
+        decision = _router.route(preg)
+        cb_p("orquestador", f"🎯 Router: {decision.agent} ({decision.confidence:.0%})")
+
+        if decision.requires_sandbox:
+            cb_p("orquestador", "⚠️ Sandbox requerido")
+
+        # Direct routing for high-confidence single-agent tasks
+        if decision.agent != "fallback" and decision.agent != "orquestador":
+            key = decision.agent
+            if key in AGENTES:
+                run_agente(key, preg, cb_p, cb_t)
+                cb_p("orquestador", f"✅ Ruta directa: {AGENTES[key]['nombre']}")
+                return resultados.get(key, "Sin respuesta")
+    except Exception:
+        pass  # Fall through to full orchestration
+
+    # Phase 2: Full multi-agent orchestration (fallback or complex tasks)
+    cb_p("orquestador","⏳ CrewAI orquestando...")
     resp=_crewai(get_modelo("orquestador"),AGENTES["orquestador"]["system"],preg)
     cb_t("orquestador",resp,AGENTES["orquestador"]["color"])
     tareas={}
@@ -1726,6 +1936,8 @@ def main():
     _step(11, "BUILD — Servidores MCP",        TOTAL); crear_mcp_servers()
     _step(12, "BUILD — App principal",         TOTAL); crear_asistente_py()
     _step(13, "BUILD — Sandbox y Logger",      TOTAL); crear_sandbox_y_logger()
+    _step(12, "BUILD — Router semántico",      TOTAL); crear_router_files()
+    _step(13, "BUILD — App principal",         TOTAL); crear_asistente_py()
     _step(14, "BUILD — Recursos (icono/imgs)", TOTAL)
     crear_icono(); crear_wizard_images(); crear_licencia()
 
