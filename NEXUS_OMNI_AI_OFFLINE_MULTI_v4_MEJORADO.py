@@ -136,7 +136,7 @@ def diag_python():
         for vv in ["311","310","312"]:
             candidatos += [
                 rf"C:\Python3{vv[1:]}\python.exe",
-                rf"C:\Users\{u}\AppData\Local\Programs\Python\Python3{vv}\python.exe",
+                rf"C:\Users\{u}\AppData\Local\Programs\Python\Python{vv}\python.exe",
                 f"py -3.{vv[1:]}",
             ]
         for cand in candidatos:
@@ -346,7 +346,7 @@ def gestionar_venv():
     if r.returncode == 0 and os.path.exists(venv_python):
         subprocess.run(f'"{venv_python}" -m pip install pip --upgrade --quiet', shell=True)
         S.python_exe = venv_python
-        _ok(f"Entorno virtual creado y listo")
+        _ok("Entorno virtual creado y listo")
     else:
         _err("No se pudo crear el entorno virtual")
 
@@ -806,6 +806,8 @@ AGENTES={
         "system":"Eres EXPERTO EN INVESTIGACION. Busca hechos, verifica, sintetiza."},
     "integrador":   {"modelo":"deepseek-r1","fallback":"phi3","color":"#facc15","icono":"🔗","nombre":"Integrador","motor":"crewai",
         "system":"Eres el INTEGRADOR FINAL. Combina respuestas en UNA respuesta cohesiva y completa."},
+    "code_review":  {"modelo":"qwen3-coder","fallback":"phi3","color":"#00ffaa","icono":"🔍","nombre":"Code Reviewer","motor":"ollama",
+        "system":"You are a senior software engineer and security auditor. Analyze the provided code and: 1. Identify syntax errors. 2. Identify logical bugs. 3. Identify security vulnerabilities. 4. Identify performance problems. 5. Identify bad practices. Return output with FINDINGS (severity + description) and CORRECTED CODE."},
 }
 
 def modelos_ok():
@@ -1129,24 +1131,45 @@ class App(tk.Tk):
         ruta=filedialog.askopenfilename(filetypes=[("Docs","*.pdf *.txt *.docx *.md"),("Todos","*.*")])
         if ruta:
             self._or(f"⏳ Indexando {os.path.basename(ruta)}...")
-            threading.Thread(target=lambda:self.after(0,lambda:self._or(mcp_call("mcp_rag.py","indexar_documento",{"ruta_archivo":ruta},timeout=60))),daemon=True).start()
+            def _r():
+                res=mcp_call("mcp_rag.py","indexar_documento",{"ruta_archivo":ruta},timeout=60)
+                self.after(0,lambda r=res:self._or(r))
+            threading.Thread(target=_r,daemon=True).start()
     def _rag_buscar(self):
         q=self.rag_q.get().strip() or "tema principal"
-        threading.Thread(target=lambda:self.after(0,lambda:self._or(mcp_call("mcp_rag.py","buscar_en_documentos",{"query":q}))),daemon=True).start()
+        def _r():
+            res=mcp_call("mcp_rag.py","buscar_en_documentos",{"query":q})
+            self.after(0,lambda r=res:self._or(r))
+        threading.Thread(target=_r,daemon=True).start()
     def _rag_list(self):
-        threading.Thread(target=lambda:self.after(0,lambda:self._or(mcp_call("mcp_rag.py","listar_documentos_indexados",{}))),daemon=True).start()
+        def _r():
+            res=mcp_call("mcp_rag.py","listar_documentos_indexados",{})
+            self.after(0,lambda r=res:self._or(r))
+        threading.Thread(target=_r,daemon=True).start()
     def _tts(self):
         t=self.voz_t.get("1.0",tk.END).strip()
-        if t: threading.Thread(target=lambda:self.after(0,lambda:self._ov(mcp_call("mcp_voice.py","texto_a_voz",{"texto":t}))),daemon=True).start()
+        if t:
+            def _r():
+                res=mcp_call("mcp_voice.py","texto_a_voz",{"texto":t})
+                self.after(0,lambda r=res:self._ov(r))
+            threading.Thread(target=_r,daemon=True).start()
     def _stt(self):
         self._ov("🎙️ Escuchando 5s...")
         def _r():
             res=mcp_call("mcp_voice.py","reconocer_voz",{"duracion":5},timeout=15)
-            self.after(0,lambda:self._ov(res))
+            self.after(0,lambda r=res:self._ov(r))
             if res.startswith("Reconocido:"): self.after(0,lambda:self.entrada.insert(tk.END,res.split(":",1)[1].strip()))
         threading.Thread(target=_r,daemon=True).start()
-    def _voces(self): threading.Thread(target=lambda:self.after(0,lambda:self._ov(mcp_call("mcp_voice.py","listar_voces",{}))),daemon=True).start()
-    def _mr(self,srv,tool,args): threading.Thread(target=lambda:self.after(0,lambda:self._om(mcp_call(srv,tool,args))),daemon=True).start()
+    def _voces(self):
+        def _r():
+            res=mcp_call("mcp_voice.py","listar_voces",{})
+            self.after(0,lambda r=res:self._ov(r))
+        threading.Thread(target=_r,daemon=True).start()
+    def _mr(self,srv,tool,args):
+        def _r():
+            res=mcp_call(srv,tool,args)
+            self.after(0,lambda r=res:self._om(r))
+        threading.Thread(target=_r,daemon=True).start()
     def _ml(self):
         r=filedialog.askopenfilename()
         if r: self._mr("mcp_files.py","leer_archivo",{"ruta":r})
@@ -1299,7 +1322,7 @@ def compilar_exe():
     exe = os.path.join(CFG["dist_dir"],"nexus_omni.exe")
     if os.path.exists(exe):
         size_mb = os.path.getsize(exe) / 1e6
-        _ok(f"asistente.exe creado ({size_mb:.1f} MB)")
+        _ok(f"{CFG['nombre_exe']} creado ({size_mb:.1f} MB)")
         return True
     else:
         _err("Error compilando .exe"); return False
@@ -1341,7 +1364,7 @@ def crear_iss():
         "","[Tasks]",
         'Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Opciones:"',
         "","[Files]",
-        f'Source: "{d["dist_dir"]}\\asistente.exe"; DestDir: "{{app}}"; Flags: ignoreversion',
+        f'Source: "{d["dist_dir"]}\\{d["nombre_exe"]}"; DestDir: "{{app}}"; Flags: ignoreversion',
         f'Source: "{d["app_dir"]}\\icono.ico"; DestDir: "{{app}}"; Flags: ignoreversion',
         f'Source: "{d["installer_dir"]}\\instalar_ollama.ps1"; DestDir: "{{app}}"; Flags: ignoreversion',
         f'Source: "{d["mcp_dir"]}\\*"; DestDir: "{{app}}\\mcp_servers"; Flags: ignoreversion recursesubdirs',
@@ -1469,7 +1492,7 @@ def main():
 
     # Mostrar resumen de lo que se va a instalar
     print(f"\n{C.BOLD}{C.CYAN}{'═'*65}")
-    print(f"  🚀 NEXUS OMNI — INSTALACIÓN AUTOMÁTICA EN PROGRESO")
+    print("  🚀 NEXUS OMNI — INSTALACIÓN AUTOMÁTICA EN PROGRESO")
     print(f"{'═'*65}{C.RESET}")
     if S.pkgs_faltantes:
         print(f"  {C.WARN}📦 Se instalarán {len(S.pkgs_faltantes)} paquetes Python faltantes{C.RESET}")
