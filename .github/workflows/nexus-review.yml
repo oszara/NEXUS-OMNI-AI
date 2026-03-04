@@ -24,3 +24,106 @@ jobs:
       - name: Run Review
         run: |
           python review_all.py
+# Workflow de revisión automática para NEXUS-OMNI-AI
+# Se ejecuta en cada pull request y push a main para validar la calidad del código.
+#
+# Jobs:
+#   lint       — revisión de estilo con flake8 (bloqueante)
+#   ia-review  — revisión semántica con Ollama + qwen3-coder (informativa, no bloqueante)
+
+name: NEXUS Review
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: Revisión de código (flake8)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias de revisión
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+
+      - name: Verificar sintaxis y estilo (flake8)
+        run: |
+          # Primera pasada: errores críticos (sintaxis, nombres no definidos)
+          # Se analiza todo el proyecto incluyendo el módulo principal
+          flake8 . \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+          # Segunda pasada: estilo PEP 8 completo sobre los módulos de integración
+          # Se excluye NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py (archivo central,
+          # no se modifica directamente según las reglas del proyecto)
+          # W503 ignorado: estilo de salto de línea antes de operador binario
+          flake8 . \
+            --count \
+            --max-line-length=120 \
+            --ignore=W503 \
+            --exclude=NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py \
+            --statistics
+
+  # ---------------------------------------------------------------------------
+  # Revisión semántica con IA — solo en pull requests, no bloqueante
+  # ---------------------------------------------------------------------------
+  ia-review:
+    name: Revisión IA (Ollama + qwen3-coder)
+    runs-on: ubuntu-latest
+    # Solo ejecutar en pull requests; los pushes directos a main no generan PR
+    if: github.event_name == 'pull_request'
+    # No bloquea el merge si Ollama falla o el modelo tarda demasiado
+    continue-on-error: true
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          # Historial completo para comparar el commit anterior
+          fetch-depth: 0
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Iniciar Ollama
+        run: |
+          ollama serve &
+          sleep 5
+
+      - name: Descargar modelo qwen3-coder
+        run: ollama pull qwen3-coder
+
+      - name: Verificar Ollama
+        run: curl http://127.0.0.1:11434/api/tags
+
+      - name: Ejecutar revisión IA
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python review_all.py
