@@ -39,4 +39,5 @@ ollama
 goose-ai
 mcp
 pyyaml
+pytest
 pyyaml
