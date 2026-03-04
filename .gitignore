@@ -36,6 +36,14 @@ exports/
 __pycache__/
 *.pyc
 *.pyo
+dist/
+build/
+*.egg-info/
+.eggs/
+*.exe
+*.spec
+venv/
+.venv/
 *.pyo
 *.pyd
 .Python
