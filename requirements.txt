@@ -12,6 +12,7 @@ ollama
 pyinstaller
 
 # Agentes IA
+# Agentes IA
 langchain>=0.3.27,<0.4
 langchain-ollama>=0.3.3
 langchain-community>=0.3.27,<0.4
@@ -20,17 +21,15 @@ crewai==0.86.0
 ag2
 mcp
 
-# Generación de imágenes
-diffusers
-transformers
-accelerate
-safetensors
+# API
+fastapi
+uvicorn
+pydantic
+python-dotenv
 
-# RAG (Retrieval Augmented Generation)
+# RAG / Vector DB
 chromadb
 sentence-transformers
-pypdf
-python-docx
 
 # Voz
 pyttsx3
