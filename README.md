@@ -1,3 +1,5 @@
+# NEXUS OMNI AI
+
 # NEXUS OMNI Multi-Agente IA v4.0
 
 Sistema de IA offline multi-agente con 7 agentes especializados que trabajan en paralelo.
@@ -263,6 +265,7 @@ NEXUS-OMNI-AI/
 
 ---
 
+## API de Skills (CoPaw)
 ## API de Skills
 
 Puedes usar el Skill de NEXUS directamente desde Python:
@@ -324,4 +327,5 @@ y en el almacén ReMe de CoPaw cuando sí lo está.
 
 ## Licencia
 
+Proyecto desarrollado por **NEXUS AI Labs**.
 Proyecto desarrollado por **NEXUS AI Labs**.

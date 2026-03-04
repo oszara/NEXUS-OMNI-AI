@@ -39,3 +39,4 @@ ollama
 goose-ai
 mcp
 pyyaml
+pyyaml
