@@ -1,0 +1,37 @@
+version: "1.0"
+title: "NEXUS-OMNI-AI: Análisis y Mejora Autónoma"
+description: |
+  Receta de Goose para analizar el proyecto NEXUS-OMNI-AI,
+  detectar mejoras y generar sugerencias automáticamente.
+  Utiliza la extensión MCP de NEXUS para interactuar con el motor de IA.
+
+extensions:
+  - name: "nexus"
+    type: "stdio"
+    cmd: "python"
+    args: ["goose_extension_nexus.py"]
+    description: "Extensión MCP de NEXUS-OMNI-AI — expone nexus_query y nexus_status"
+
+steps:
+  - text: |
+      Eres el asistente de NEXUS-OMNI-AI. Primero verifica el estado del sistema
+      con la herramienta nexus_status y muestra los resultados.
+
+  - text: |
+      Analiza el archivo principal NEXUS_OMNI_AI_OFFLINE_MULTI_v4_MEJORADO.py y:
+      1. Identifica las principales funcionalidades implementadas.
+      2. Detecta posibles bugs o áreas de mejora.
+      3. Sugiere optimizaciones de rendimiento.
+      4. Propone mejoras de estructura o modularización.
+      Presenta un reporte estructurado en español.
+
+  - text: |
+      Usando la herramienta nexus_query, envía la siguiente consulta al motor NEXUS:
+      "¿Cuáles son las capacidades principales de NEXUS-OMNI-AI y cómo pueden mejorarse?"
+      Muestra la respuesta y añade tus comentarios sobre la misma.
+
+  - text: |
+      Genera un resumen ejecutivo en español con:
+      - Los hallazgos más importantes del análisis.
+      - Las 3 mejoras de mayor impacto recomendadas.
+      - Los próximos pasos sugeridos para el desarrollo del proyecto.
