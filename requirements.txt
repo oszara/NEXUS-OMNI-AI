@@ -1,3 +1,7 @@
+ollama
+fastapi
+uvicorn
+pytest
 # NEXUS OMNI Multi-Agente IA v4.0 — Dependencias
 # Instalar con: pip install -r requirements.txt
 

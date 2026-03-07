@@ -38,6 +38,10 @@ exports/
 *.log
 __pycache__/
 *.pyc
+.env
+venv/
+dist/
+build/
 *.pyo
 dist/
 build/
